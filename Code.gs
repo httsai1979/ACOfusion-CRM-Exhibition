@@ -364,23 +364,46 @@ function initSheet(name) {
 }
 
 /**
- * 基礎資料初始化 (解決 APP 無資料問題)
+ * 基礎資料初始化 (建立 30 組專業燈具測試資料)
  */
 function seedInitialData() {
-  const products = [
-    { "產品編號": "ACO-M1632-RGBW", "照片": "", "產品名稱": "Architectural Wall Washer M1632", "瓦數": "36W", "CCT": "RGBW", "IP": "66", "光束角": "15x30°", "單價": "155", "MOQ": "5", "保固期": "5 Years", "備註": "Cree LED, OSRAM Driver, CBM: 0.04" },
-    { "產品編號": "ACO-DL-P95", "照片": "", "產品名稱": "Deep Anti-Glare Downlight P95", "瓦數": "12W", "CCT": "2700K/3000K/4000K", "IP": "44", "光束角": "24°/36°", "單價": "48", "MOQ": "50", "保固期": "3 Years", "備註": "Bridgelux COB, UGR<16" },
-    { "產品編號": "ACO-GL-300", "照片": "", "產品名稱": "High-Mast Flood Light 300W", "瓦數": "300W", "CCT": "5000K", "IP": "67", "光束角": "60°/90°", "單價": "420", "MOQ": "2", "保固期": "5 Years", "備註": "Meanwell Driver, 150lm/W" }
-  ];
+  const categories = ["Wall Washer", "Downlight", "Spotlight", "Flood Light", "Track Light"];
+  const wattages = [12, 24, 36, 50, 100, 150, 300];
+  const ips = [44, 54, 65, 66, 67];
+  
+  const products = [];
+  
+  // 建立 30 組半自動隨機資料，模擬官網產線
+  for (let i = 1; i <= 30; i++) {
+    const cat = categories[Math.floor(Math.random() * categories.length)];
+    const watt = wattages[Math.floor(Math.random() * wattages.length)];
+    const ip = ips[Math.floor(Math.random() * ips.length)];
+    const sku = `ACO-${cat.charAt(0)}${watt}-${1000 + i}`;
+    
+    products.push({
+      "產品編號": sku,
+      "照片": "",
+      "產品名稱": `${cat} Pro Gen ${i}`,
+      "瓦數": `${watt}W`,
+      "CCT": i % 2 === 0 ? "3000K/4000K" : "RGBW",
+      "IP": ip.toString(),
+      "光束角": `${15 + (i % 5)*10}°`,
+      "單價": (watt * 1.5 + 40).toString(),
+      "MOQ": i % 3 === 0 ? "10" : "50",
+      "保固期": "5 Years",
+      "備註": `High-End ${cat} for professional projects. Efficiency: 130lm/W.`
+    });
+  }
   
   const sheet = SS.getSheetByName('Products') || initSheet('Products');
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   
-  // 清除舊資料並重新導入真實規格
+  // 清除舊資料並重新導入
   if (sheet.getLastRow() > 1) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).clearContent();
   }
+  
   const data = products.map(p => headers.map(h => p[h] || ""));
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
-  return { success: true, message: 'Factory Catalog Synced' };
+  return { success: true, message: '30+ Products Catalog Synced to Sheet' };
 }

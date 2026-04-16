@@ -314,12 +314,19 @@ export default function App() {
     setCloudStatus({ loading: true, msg: 'Initializing Intelligent Hub...' });
     try {
       const resP = await apiFetch(sysConfig.gasUrl, 'getProducts', {}, sysConfig.apiToken);
+      if (resP.success === false) {
+        setCloudStatus({ loading: false, msg: `AUTH FAILED: ${resP.message || 'Check Token'}` });
+        return;
+      }
       const resC = await apiFetch(sysConfig.gasUrl, 'getContacts', {}, sysConfig.apiToken);
       const resD = await apiFetch(sysConfig.gasUrl, 'getDeals', {}, sysConfig.apiToken);
       setSysConfig(prev => ({ ...prev, products: resP.data || [], contacts: resC.data || [], deals: resD.data || [] }));
       setCloudStatus({ loading: false, msg: 'Flagship Synchronized' });
-    } catch (e) { setCloudStatus({ loading: false, msg: 'Connect failed.' }); }
-    setTimeout(() => setCloudStatus({ loading: false, msg: '' }), 3000);
+    } catch (e) { 
+      console.error('Connection Error:', e);
+      setCloudStatus({ loading: false, msg: 'CONNECT FAILED: Verify URL & Permission' }); 
+    }
+    setTimeout(() => setCloudStatus({ loading: false, msg: '' }), 5000);
   }, [sysConfig.gasUrl, sysConfig.apiToken]);
 
   useEffect(() => { refreshData(); }, []);
