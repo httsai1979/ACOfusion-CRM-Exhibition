@@ -51,9 +51,11 @@ function doPost(e) {
     switch (action) {
       case 'sync_lead': result = syncLead(request.lead); break;
       case 'save_quotation': result = saveQuotationHighPro(request.quotation, request.pdfBase64); break;
+      case 'export_excel': result = generateExcelExport(request.quotation); break;
       case 'scan_business_card': result = scanBusinessCardV2(request.imageBase64); break;
       case 'send_email': result = sendCrmEmail(request.emailData); break;
       case 'trigger_email_process': result = autoProcessEmails(); break;
+      case 'seed_data': result = seedInitialData(); break;
       default: result = { success: false, message: 'Unknown POST action: ' + action };
     }
     return createResponse(result);
@@ -66,16 +68,68 @@ function doPost(e) {
 // 1. 名片識別與聯絡人自動化 (AI OCR & Google Contacts)
 // ==========================================
 
+/**
+ * 專業 Excel 導出功能 (透過 Google Sheets 轉 XLSX)
+ */
+function generateExcelExport(quote) {
+  try {
+    const fileName = `[ACO-QT]-${quote.company}-${Utilities.formatDate(new Date(), "GMT+8", "yyyyMMdd")}.xlsx`;
+    const tempSS = SpreadsheetApp.create(fileName);
+    const sheet = tempSS.getSheets()[0];
+    
+    // 設置報價單抬頭
+    sheet.getRange("A1").setValue("ACOfusion Lighting Quotation").setFontSize(16).setFontWeight("bold");
+    sheet.getRange("A2").setValue("Client: " + quote.company);
+    sheet.getRange("A3").setValue("Date: " + new Date().toLocaleDateString());
+    
+    // 項目標題
+    const headers = ["Item", "Wattage", "CCT", "IP", "Qty", "Price", "Amount"];
+    sheet.getRange(5, 1, 1, headers.length).setValues([headers]).setBackground("#0f172a").setFontColor("white");
+    
+    // 填入產品
+    const rowData = quote.items.map((it, i) => [
+      it.name || it.產品名稱,
+      it.瓦數 || "",
+      it.CCT || "",
+      it.IP || "",
+      it.qty || 1,
+      it.單價 || it.price,
+      (it.qty || 1) * (it.單價 || it.price)
+    ]);
+    sheet.getRange(6, 1, rowData.length, headers.length).setValues(rowData);
+    
+    // 總計
+    const totalRow = 6 + rowData.length + 1;
+    sheet.getRange(totalRow, 6).setValue("Total (" + (quote.currency || "USD") + "):");
+    sheet.getRange(totalRow, 7).setValue(quote.total).setFontWeight("bold");
+    
+    // 取得檔案並轉為透明下載
+    const fileId = tempSS.getId();
+    const url = "https://docs.google.com/spreadsheets/d/" + fileId + "/export?format=xlsx";
+    
+    // 注意：建議將檔案移動到指定資料夾
+    const file = DriveApp.getFileById(fileId);
+    if (QUOTATION_FOLDER_ID) {
+      const folder = DriveApp.getFolderById(QUOTATION_FOLDER_ID);
+      folder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    }
+    
+    return { success: true, downloadUrl: url };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
+
 function syncLead(lead) {
   const sheet = SS.getSheetByName('Contacts') || initSheet('Contacts');
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   
-  // 1. 同步至 Google Contacts (需啟用 People API)
   let googleContactId = lead.googleContactId || '';
   try {
     googleContactId = upsertGoogleContact(lead);
   } catch (e) {
-    console.error('People API Error:', e);
+    console.warn('People API (Contact Sync) might not be enabled or failed: ', e);
   }
 
   // 2. 同步至 Google Sheet
@@ -266,6 +320,22 @@ function initSheet(name) {
   if (name === 'Contacts') headers = ['id', '公司名稱', '聯絡人', 'Email', '電話', '地址', '職稱', 'googleContactId', 'lastUpdated'];
   if (name === 'Deals') headers = ['quoteNo', 'company', 'total', 'currency', 'status', 'pdfLink', 'date', 'incoterms', 'warranty', 'aiStrategy'];
   
-  if (headers.length > 0) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  return sheet;
+/**
+ * 基礎資料初始化 (解決 APP 無資料問題)
+ */
+function seedInitialData() {
+  const products = [
+    { "產品編號": "ACO-M1632", "照片": "", "產品名稱": "M-Series Wall Washer", "瓦數": "24", "CCT": "3000K", "IP": "65", "光束角": "30", "單價": "120", "MOQ": "10", "保固期": "3 Years", "備註": "Top Seller" },
+    { "產品編號": "ACO-DL-09", "照片": "", "產品名稱": "High-CRI Downlight", "瓦數": "9", "CCT": "4000K", "IP": "44", "光束角": "60", "單價": "45", "MOQ": "50", "保固期": "2 Years", "備註": "Office Pro" },
+    { "產品編號": "ACO-ST-150", "照片": "", "產品名稱": "Industrial Street Light", "瓦數": "150", "CCT": "5700K", "IP": "67", "光束角": "TYPE-II", "單價": "350", "MOQ": "5", "保固期": "5 Years", "備註": "Factory Standard" }
+  ];
+  
+  const sheet = SS.getSheetByName('Products') || initSheet('Products');
+  if (sheet.getLastRow() <= 1) {
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const data = products.map(p => headers.map(h => p[h] || ""));
+    sheet.getRange(2, 1, data.length, headers.length).setValues(data);
+    return { success: true, message: 'Products Seeded' };
+  }
+  return { success: true, message: 'Data already exists' };
 }
