@@ -359,7 +359,10 @@ function initSheet(name) {
   if (name === 'Products') headers = ['產品編號', '照片', '產品名稱', '瓦數', 'CCT', 'IP', '光束角', '單價', 'MOQ', '保固期', '備註'];
   if (name === 'Contacts') headers = ['id', '公司名稱', '聯絡人', 'Email', '電話', '地址', '職稱', 'googleContactId', 'lastUpdated'];
   if (name === 'Deals') headers = ['quoteNo', 'company', 'total', 'currency', 'status', 'pdfLink', 'date', 'incoterms', 'warranty', 'aiStrategy'];
-  
+  if (headers.length > 0) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  return sheet;
+}
+
 /**
  * 基礎資料初始化 (解決 APP 無資料問題)
  */
@@ -374,7 +377,9 @@ function seedInitialData() {
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   
   // 清除舊資料並重新導入真實規格
-  sheet.getRange(2, 1, sheet.getLastRow(), headers.length).clearContent();
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).clearContent();
+  }
   const data = products.map(p => headers.map(h => p[h] || ""));
   sheet.getRange(2, 1, data.length, headers.length).setValues(data);
   return { success: true, message: 'Factory Catalog Synced' };
