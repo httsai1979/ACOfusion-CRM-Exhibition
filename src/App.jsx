@@ -332,6 +332,7 @@ export default function App() {
            </div>
         </div>
       )}
+      {cloudStatus.msg && (
         <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[150] animate-in slide-in-from-bottom-5">
            <div className="flex items-center gap-5 bg-slate-900 border border-sky-500/30 px-10 py-5 rounded-full shadow-2xl">
               {cloudStatus.loading ? <Loader2 size={18} className="animate-spin text-sky-400" /> : <CheckCircle2 size={18} className="text-emerald-400" />}
