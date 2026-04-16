@@ -12,6 +12,7 @@
   "dependencies": {
     "autoprefixer": "^10.4.27",
     "build": "^0.1.4",
+    "html2pdf.js": "^0.10.2",
     "lucide-react": "^0.577.0",
     "postcss": "^8.5.8",
     "react": "^19.2.4",
