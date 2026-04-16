@@ -1,87 +1,93 @@
-我完全明白您的意思。要讓 AI（Antigravity / Canvas）能真正寫出「能用」且「高品質」的程式碼，亂槍打鳥的指令是行不通的。我們需要一份**鋼鐵般嚴謹的「產品需求規格書 (PRD)」**。
+ACOfusion Lighting CRM 企業旗艦版規格說明書 (v6.0)
 
-這份文件定義了系統的邏輯、資料結構與視覺標準。您可以直接將以下內容複製並貼給 Antigravity AI，指令如下：
+1. 系統願景與品牌核心
 
-> **「請根據以下這份《ACOfusion CRM 企業生產版開發規格書》，重構我的 `App.jsx` 與 `Code.gs`。我要求代碼必須完全符合規格書中的模組化要求、資料結構與 PDF 渲染標準。」**
+本系統是專為 ACOfusion Lighting 打造的智慧化管理工具，核心目標是「極大化自動化、零重複作業」。視覺設計以公司 Logo 為中心，採用深藍（#0F172A）與科技藍（#38BDF8）的工業風格，展現燈具工廠的現代感與可靠性。
 
----
+1. 跨平台架構 (PC First, Mobile Optimized)
 
-# 📝 ACOfusion CRM 企業生產版開發規格書 (v4.0)
+電腦端 (Desktop): 提供完整的儀表板視角，適合處理複雜的報價單編寫、財務條款調整與長篇郵件回覆。
 
-## 1. 系統定位與目標
+手機端 (Mobile): 優化名片掃描功能，提供「大按鈕」操作介面與簡易商機追蹤，適合展會現場即時錄入。
 
-本系統專為 ACOfusion Lighting 展會現場業務設計。核心目標是：**快速掃描名片、離線建立客戶資料、即時生成專業級 PDF 報價單，並在網路恢復時自動同步至 Google 雲端。**
+基座: 透過 Google Apps Script (GAS) 將 React 前端與 Google 雲端工具（Sheets, Gmail, Contacts, Drive）緊密黏合。
 
-## 2. 技術棧要求
+1. 核心功能模組 (深度解構)
 
-- **前端：** Vite + React + Tailwind CSS (UI 使用深色科技風格：Slate-950 為底)。
-- **後端：** Google Apps Script (GAS) 作為 API 網關。
-- **資料庫：** Google Sheets (分頁：`Contacts`, `Deals`, `Products`, `Activities`)。
-- **PDF 引擎：** html2canvas + jsPDF (需支援 A4 絕對比例渲染)。
+模組 A：名片視覺與聯絡人自動化 (AI OCR & Sync)
 
-## 3. 核心功能模組規格
+AI 辨識: 手機拍下名片後，Gemini 2.0 負責提取：姓名、公司、Email、手機、地址、職稱。
 
-### 模組 A：動態產品同步 (Product Hydration)
+Google Contacts 同步: GAS 透過 People API 在您的公司帳號中自動建立該聯絡人，手機通訊錄會立即更新。
 
-- **需求：** 嚴禁硬編碼產品資料。
-- **邏輯：** - 系統啟動時，呼叫 `GET ?action=getProducts`。
-  - 將資料存入 `products` 狀態。
-  - 欄位包含：`SKU`, `Name`, `Category`, `Specs`, `Price`, `ImageURL` (絕對路徑)。
+CRM 回填: 同時在試算表 Contacts 分頁建立一筆包含照片連結的新資料。
 
-### 模組 B：離線優先客戶管理 (Offline-First CRM)
+模組 B：智慧郵件與商機導航 (Gmail AI integration)
 
-- **需求：** 確保展場斷網時資料不遺失。
-- **邏輯：** - 使用 `LocalStorage` 或 `IndexedDB` 進行持久化。
-  - 新增 Lead 時，預設標記 `syncStatus: "pending"`。
-  - 提供 `SyncCenter` UI，顯示待上傳數量，並具備「一鍵重試」功能。
+發信模式: 以 <james@acofusion.com> 為發信主體，支持 HTML 模板（自動帶入客戶稱呼與產品推薦）。
 
-### 模組 C：名片視覺 AI (OCR Pipeline)
+郵件歸檔與分析:
 
-- **需求：** 處理名片影像。
-- **邏輯：** - 前端：上傳前先使用 Canvas 進行圖片壓縮 (Max 1200px)，轉為 Base64。
-  - 後端：將 Base64 傳送至 Gemini API 提取 JSON (Name, Company, Email, Phone)。
-  - 自動填充至客戶表單。
+附件追蹤: 系統自動掃描發出與收到的郵件，將報價單附件自動歸檔至 Google Drive 指定資料夾。
 
-### 模組 D：專業報價引擎 (Quotation Engine)
+AI 深度分析: Gemini 讀取客戶回信，自動更新 CRM 中的「當前階段」(例如：客戶在問樣品，系統自動將狀態改為 Sample Stage)。
 
-- **PDF 佈局標準：** - **第 1 頁 (Cover)：** 公司 Logo、正式報價單號、客戶資訊、報價項目清單、總計、簽名區。
-  - **第 2 頁 (Tech Specs)：** 根據所選產品，自動生成技術規格對照表（如：色溫、亮度、流明、防護等級）。
-- **渲染優化：** 使用 `windowWidth: 1200` 渲染 PDF 隱藏 DOM，確保手機端輸出的比例與 A4 一致。
+下一動作 (Next Action): AI 提供行動建議，例如：「客戶對 MOQ 有疑慮，建議提供 5% 的折扣或縮短交期」。
 
-## 4. 資料結構 (Schema)
+模組 C：專業燈具報價引擎 (Pro Quotation Engine)
 
-### 客戶資料 (Contacts)
+自動化生成: 點選客戶後自動帶入基本資料；點選產品後自動帶入規格（瓦數、CCT、IP、光束角等）。
 
-| 欄位名 | 類型 | 說明 |
-| :--- | :--- | :--- |
-| `id` | String | 自動生成 UUID |
-| `company` | String | 公司名稱 |
-| `email` | String | 客戶信箱 (唯一標識) |
-| `status` | Enum | New / Following / Quoted |
-| `syncStatus` | Enum | synced / pending |
+商業參數自定義:
 
-### 交易紀錄 (Deals)
+財務細節: 支持 USD / EUR / RMB / TWD，並根據實時/固定匯率計算 VAT 稅率。
 
-| 欄位名 | 類型 | 說明 |
-| :--- | :--- | :--- |
-| `quoteNo` | String | ACO-YYYYMMDD-XXX |
-| `items` | JSON | 產品 ID 與數量列表 |
-| `finalTotal` | Number | 含稅、折扣後總價 |
-| `pdfLink` | URL | Google Drive 的 PDF 備份連結 |
+支付條款: 支援設定訂金（Deposit）、尾款（Balance）、票期（Net Days）。
 
-## 5. UI/UX 視覺規範 (Branding)
+交貨條件: 點選切換 Incoterms (EXW, FOB, CIF, DDP) 與 Shipping Term。
 
-- **色彩：** 背景 `#020617` (Slate-950), 主色 `#3b82f6` (Blue-500), 強調色 `#06b6d4` (Cyan-500)。
-- **組件：** 玻璃擬態 (Glassmorphism) 卡片、Lucide Icons (1.5px 粗細)。
-- **響應式：** 側邊欄在手機端需可摺疊，主要操作按鈕需位於拇指易觸控區域。
+售後與規則: 自動生成產品保固期與 MOQ 調整警示。
 
-## 6. 後端 API (GAS) 安全性
+檔案輸出:
 
-- **授權：** 每個 POST 請求必須在 Header 包含 `X-API-TOKEN`。
-- **路由：**
-  - `GET ?action=getContacts`
-  - `GET ?action=getProducts`
-  - `POST ?action=sync_lead`
-  - `POST ?action=new_quotation` (含 PDF 存檔至 Drive 邏輯)
+格式: 同時產生 Excel (供客戶編輯) 與 PDF (正式封閉格式)。
 
----
+命名規範: [ACO-QT]-客戶公司-YYYYMMDD-Vn.pdf (例如：[ACO-QT]-Starbucks-20240520-V2.pdf)。
+
+存儲: 自動存入 Google Drive 的 ACOfusion_Quotation 資料夾。
+
+1. 資料庫架構 (Sheet Schema)
+
+1. Contacts (聯絡人)
+
+| 客戶 ID | 來源(展會名稱) | 公司名稱 | 聯絡人 | 職稱 | Email | 電話 | 地址 | Google Contact ID |
+
+1. Products (產品庫 - 依據官網規格)
+
+| 產品編號 | 照片 | 產品名稱 | 瓦數 | CCT | IP | 光束角 | 單價 | MOQ | 保固期 | 備註 |
+
+1. Deals (報價與商機)
+
+| 報價單號 | 客戶 ID | 總金額 | 幣別 | 狀態(詢價/樣品/訂單) | 附件連結 (Drive) | AI 建議 | 下次追蹤日期 |
+
+1. 自動化部署 SOP (非工程師適用)
+
+第一階段：資產準備 (前)
+
+Google 表格: 建立具備上述標題的 Google Sheets。
+
+Google Drive: 建立 ACOfusion_CRM_Assets 總資料夾，下設 Photos 與 Quotations 子資料夾。
+
+API 密鑰: 取得 Gemini 免費 API Key 並安全存放在 GAS Script Properties 中。
+
+第二階段：邏輯串聯 (中)
+
+部署 GAS: 將我提供的「膠水代碼」貼入 GAS 編輯器，這會處理 Gmail 監聽、PDF 生成與 Google Contacts 寫入。
+
+設定觸發器: 設定每分鐘檢查一次 Gmail CRM_Sync 標籤的郵件。
+
+第三階段：介面發布 (後)
+
+Web App 部署: 點選 GAS 的「部署」>「網頁應用程式」，將獲得一個專屬連結。
+
+使用: 電腦用瀏覽器開啟此連結即為完整 CRM；手機將此網頁加入主畫面即成為 App。
