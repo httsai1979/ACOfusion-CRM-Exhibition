@@ -51,6 +51,7 @@ function doPost(e) {
     switch (action) {
       case 'sync_lead': result = syncLead(request.lead); break;
       case 'save_quotation': result = saveQuotationHighPro(request.quotation, request.pdfBase64); break;
+      case 'get_next_version': result = getNextQuoteVersion(request.company); break;
       case 'export_excel': result = generateExcelExport(request.quotation); break;
       case 'scan_business_card': result = scanBusinessCardV2(request.imageBase64); break;
       case 'send_email': result = sendCrmEmail(request.emailData); break;
@@ -149,6 +150,29 @@ function syncLead(lead) {
   }
   
   return { success: true, id: lead.id, googleContactId: googleContactId };
+}
+
+/**
+ * 自動判斷下一個報價單版次 (自動遞增 Vn)
+ */
+function getNextQuoteVersion(company) {
+  const sheet = SS.getSheetByName('Deals');
+  if (!sheet) return { success: true, version: 1 };
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const companyCol = headers.indexOf('company');
+  
+  let maxVersion = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][companyCol] === company) {
+      const quoteNo = data[i][0].toString();
+      const match = quoteNo.match(/-V(\d+)$/);
+      if (match) {
+        maxVersion = Math.max(maxVersion, parseInt(match[1]));
+      }
+    }
+  }
+  return { success: true, version: maxVersion + 1 };
 }
 
 /**
@@ -276,10 +300,26 @@ function analyzeEmailIntelligence(content) {
   } catch (e) { return null; }
 }
 
+/**
+ * 智慧郵件處理：自動更新 Deal 狀態與進度建議
+ */
 function updateDealStatus(email, analysis) {
-  const sheet = SS.getSheetByName('Deals');
-  if (!sheet) return;
-  // 更新邏輯：根據 email 尋找對應的 Deal 並更新 status 與 aiStrategy
+  const sheet = SS.getSheetByName('Deals') || initSheet('Deals');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const companyCol = headers.indexOf('company');
+  const statusCol = headers.indexOf('status');
+  const strategyCol = headers.indexOf('aiStrategy');
+
+  // 根據 AI 辨識的公司名稱更新最近的一筆交易
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (data[i][companyCol].includes(analysis.company) || analysis.company.includes(data[i][companyCol])) {
+      sheet.getRange(i + 1, statusCol + 1).setValue(analysis.stage);
+      sheet.getRange(i + 1, strategyCol + 1).setValue(`AI Update: ${analysis.summary} -> Next: ${analysis.nextAction}`);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ==========================================
@@ -325,17 +365,17 @@ function initSheet(name) {
  */
 function seedInitialData() {
   const products = [
-    { "產品編號": "ACO-M1632", "照片": "", "產品名稱": "M-Series Wall Washer", "瓦數": "24", "CCT": "3000K", "IP": "65", "光束角": "30", "單價": "120", "MOQ": "10", "保固期": "3 Years", "備註": "Top Seller" },
-    { "產品編號": "ACO-DL-09", "照片": "", "產品名稱": "High-CRI Downlight", "瓦數": "9", "CCT": "4000K", "IP": "44", "光束角": "60", "單價": "45", "MOQ": "50", "保固期": "2 Years", "備註": "Office Pro" },
-    { "產品編號": "ACO-ST-150", "照片": "", "產品名稱": "Industrial Street Light", "瓦數": "150", "CCT": "5700K", "IP": "67", "光束角": "TYPE-II", "單價": "350", "MOQ": "5", "保固期": "5 Years", "備註": "Factory Standard" }
+    { "產品編號": "ACO-M1632-RGBW", "照片": "", "產品名稱": "Architectural Wall Washer M1632", "瓦數": "36W", "CCT": "RGBW", "IP": "66", "光束角": "15x30°", "單價": "155", "MOQ": "5", "保固期": "5 Years", "備註": "Cree LED, OSRAM Driver, CBM: 0.04" },
+    { "產品編號": "ACO-DL-P95", "照片": "", "產品名稱": "Deep Anti-Glare Downlight P95", "瓦數": "12W", "CCT": "2700K/3000K/4000K", "IP": "44", "光束角": "24°/36°", "單價": "48", "MOQ": "50", "保固期": "3 Years", "備註": "Bridgelux COB, UGR<16" },
+    { "產品編號": "ACO-GL-300", "照片": "", "產品名稱": "High-Mast Flood Light 300W", "瓦數": "300W", "CCT": "5000K", "IP": "67", "光束角": "60°/90°", "單價": "420", "MOQ": "2", "保固期": "5 Years", "備註": "Meanwell Driver, 150lm/W" }
   ];
   
   const sheet = SS.getSheetByName('Products') || initSheet('Products');
-  if (sheet.getLastRow() <= 1) {
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const data = products.map(p => headers.map(h => p[h] || ""));
-    sheet.getRange(2, 1, data.length, headers.length).setValues(data);
-    return { success: true, message: 'Products Seeded' };
-  }
-  return { success: true, message: 'Data already exists' };
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+  // 清除舊資料並重新導入真實規格
+  sheet.getRange(2, 1, sheet.getLastRow(), headers.length).clearContent();
+  const data = products.map(p => headers.map(h => p[h] || ""));
+  sheet.getRange(2, 1, data.length, headers.length).setValues(data);
+  return { success: true, message: 'Factory Catalog Synced' };
 }
